@@ -42,11 +42,31 @@ const gradienteTipo: Record<string, string> = {
   fairy: 'from-rose-300 to-rose-500',
 };
 
+const CLAVE_FAVORITOS = 'pokemon-favoritos';
+
 export default function ExplorarPokemon({ onRegresar }: Props) {
   const [listaPokemon, setListaPokemon] = useState<ItemLista[]>([]);
   const [busqueda, setBusqueda] = useState('');
   const [detalle, setDetalle] = useState<DetallePokemon | null>(null);
   const [cargandoDetalle, setCargandoDetalle] = useState(false);
+  const [filtro, setFiltro] = useState<'todos' | 'favoritos'>('todos');
+  const [favoritos, setFavoritos] = useState<string[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem(CLAVE_FAVORITOS) ?? '[]');
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    localStorage.setItem(CLAVE_FAVORITOS, JSON.stringify(favoritos));
+  }, [favoritos]);
+
+  const alternarFavorito = (nombre: string) => {
+    setFavoritos((prev) =>
+      prev.includes(nombre) ? prev.filter((f) => f !== nombre) : [...prev, nombre]
+    );
+  };
 
   useEffect(() => {
     const cargarLista = async () => {
@@ -87,14 +107,14 @@ export default function ExplorarPokemon({ onRegresar }: Props) {
     }
   };
 
-  const listaFiltrada = listaPokemon.filter((p) =>
-    p.name.toLowerCase().includes(busqueda.toLowerCase())
-  );
+  const listaFiltrada = listaPokemon
+    .filter((p) => p.name.toLowerCase().includes(busqueda.toLowerCase()))
+    .filter((p) => filtro === 'todos' || favoritos.includes(p.name));
 
   return (
-    <div className="h-screen overflow-hidden bg-slate-50 flex">
+    <div className="min-h-screen md:h-screen md:overflow-hidden bg-slate-50 flex flex-col md:flex-row">
       {/* Barra lateral */}
-      <div className="w-72 border-r border-slate-200 bg-white flex flex-col h-full">
+      <div className="w-full md:w-72 border-b md:border-b-0 md:border-r border-slate-200 bg-white flex flex-col h-auto md:h-full max-h-[70vh] md:max-h-none">
         <div className="p-4 border-b border-slate-100">
           <button
             onClick={onRegresar}
@@ -109,29 +129,64 @@ export default function ExplorarPokemon({ onRegresar }: Props) {
             placeholder="Buscar Pokémon..."
             className="w-full border border-slate-200 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
           />
+          <div className="flex gap-2 mt-3">
+            <button
+              onClick={() => setFiltro('todos')}
+              className={`flex-1 text-xs font-semibold px-3 py-1.5 rounded cursor-pointer transition-colors ${
+                filtro === 'todos' ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+              }`}
+            >
+              Todos
+            </button>
+            <button
+              onClick={() => setFiltro('favoritos')}
+              className={`flex-1 text-xs font-semibold px-3 py-1.5 rounded cursor-pointer transition-colors ${
+                filtro === 'favoritos' ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+              }`}
+            >
+              ❤️ Favoritos ({favoritos.length})
+            </button>
+          </div>
         </div>
         <p className="px-4 pt-3 pb-1 text-xs font-semibold text-slate-400">
           POKÉMON ({listaFiltrada.length})
         </p>
         {/* Solo esta lista tiene scroll */}
         <div className="overflow-y-auto flex-1">
+          {listaFiltrada.length === 0 && (
+            <p className="px-4 py-6 text-sm text-slate-400 text-center">
+              {filtro === 'favoritos' ? 'Aún no tienes favoritos.' : 'Sin resultados.'}
+            </p>
+          )}
           {listaFiltrada.map((p) => (
             <button
               key={p.name}
               onClick={() => seleccionarPokemon(p.name)}
-              className={`w-full text-left px-4 py-3 border-b border-slate-50 hover:bg-slate-50 capitalize flex justify-between items-center cursor-pointer transition-colors ${
+              className={`w-full text-left px-4 py-3 border-b border-slate-50 hover:bg-slate-50 capitalize flex justify-between items-center gap-2 cursor-pointer transition-colors ${
                 detalle?.nombre === p.name ? 'bg-slate-100 font-semibold text-slate-900' : 'text-slate-600'
               }`}
             >
-              {p.name}
-              <span className="text-slate-300">→</span>
+              <span className="truncate">{p.name}</span>
+              <span
+                role="button"
+                tabIndex={0}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  alternarFavorito(p.name);
+                }}
+                className={`shrink-0 text-lg leading-none cursor-pointer ${
+                  favoritos.includes(p.name) ? 'text-red-500' : 'text-slate-200 hover:text-slate-300'
+                }`}
+              >
+                ❤
+              </span>
             </button>
           ))}
         </div>
       </div>
 
       {/* Panel de detalle: fijo, sin scroll de página, ocupa el resto de la pantalla */}
-      <div className="flex-1 h-full overflow-y-auto flex items-center justify-center p-6">
+      <div className="flex-1 md:h-full overflow-y-auto flex items-center justify-center p-4 md:p-6">
         {cargandoDetalle && <p className="text-slate-400">Cargando Pokémon...</p>}
 
         {!cargandoDetalle && !detalle && (
@@ -160,25 +215,36 @@ export default function ExplorarPokemon({ onRegresar }: Props) {
         )}
 
         {!cargandoDetalle && detalle && (
-          <div className="w-full max-w-[95%] h-full overflow-y-auto rounded-xl border border-slate-200 shadow-sm bg-white">
+          <div className="w-full md:max-w-[95%] h-full overflow-y-auto rounded-xl border border-slate-200 shadow-sm bg-white">
             <div
               className={`bg-gradient-to-r ${
                 gradienteTipo[detalle.tipos[0]] ?? 'from-slate-400 to-slate-600'
-              } px-8 py-4 flex gap-2`}
+              } px-4 md:px-8 py-4 flex items-center justify-between gap-2`}
             >
-              {detalle.tipos.map((tipo) => (
-                <span
-                  key={tipo}
-                  className="bg-white/25 text-white px-4 py-1.5 rounded text-sm font-semibold capitalize"
-                >
-                  {tipo}
-                </span>
-              ))}
+              <div className="flex gap-2 flex-wrap">
+                {detalle.tipos.map((tipo) => (
+                  <span
+                    key={tipo}
+                    className="bg-white/25 text-white px-4 py-1.5 rounded text-sm font-semibold capitalize"
+                  >
+                    {tipo}
+                  </span>
+                ))}
+              </div>
+              <button
+                onClick={() => alternarFavorito(detalle.nombre)}
+                className={`text-2xl leading-none cursor-pointer transition-transform hover:scale-110 ${
+                  favoritos.includes(detalle.nombre) ? 'text-red-500' : 'text-white/60'
+                }`}
+                aria-label="Marcar como favorito"
+              >
+                ❤
+              </button>
             </div>
 
-            <div className="flex flex-col items-center py-10 bg-white">
-              <img src={detalle.imagen} alt={detalle.nombre} className="w-72 h-72" />
-              <h2 className="text-5xl font-bold text-slate-900 capitalize mt-3">
+            <div className="flex flex-col items-center py-8 md:py-10 bg-white px-4">
+              <img src={detalle.imagen} alt={detalle.nombre} className="w-48 h-48 md:w-72 md:h-72" />
+              <h2 className="text-3xl md:text-5xl font-bold text-slate-900 capitalize mt-3 text-center">
                 {detalle.nombre}{' '}
                 <span className="text-slate-400 font-normal">
                   #{String(detalle.id).padStart(3, '0')}
@@ -201,7 +267,7 @@ export default function ExplorarPokemon({ onRegresar }: Props) {
               </div>
             </div>
 
-            <div className="px-8 py-6 border-t border-slate-100">
+            <div className="px-4 md:px-8 py-6 border-t border-slate-100">
               <h3 className="font-semibold text-slate-800 text-lg mb-3">Habilidades</h3>
               <div className="flex gap-2 flex-wrap">
                 {detalle.habilidades.map((h) => (
@@ -215,7 +281,7 @@ export default function ExplorarPokemon({ onRegresar }: Props) {
               </div>
             </div>
 
-            <div className="px-8 py-6 border-t border-slate-100">
+            <div className="px-4 md:px-8 py-6 border-t border-slate-100">
               <h3 className="font-semibold text-slate-800 text-lg mb-4">Estadísticas</h3>
               <div className="space-y-3">
                 {detalle.estadisticas.map((s) => (

@@ -33,9 +33,9 @@ export default function App() {
   }
 
   return (
-    <div className="p-8 bg-slate-100 min-h-screen">
-      <h1 className="text-2xl font-bold mb-4 text-slate-800">Fundamentos de React</h1>
-      <div className="flex gap-4">
+    <div className="p-4 md:p-8 bg-slate-100 min-h-screen">
+      <h1 className="text-xl md:text-2xl font-bold mb-4 text-slate-800">Fundamentos de React</h1>
+      <div className="flex flex-wrap gap-3 md:gap-4">
         <button
           onClick={obtenerDatos}
           className="bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700 transition-all cursor-pointer"
